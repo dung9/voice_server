@@ -1,6 +1,5 @@
 from flask import Flask, request
 import os
-import wave
 
 app = Flask(__name__)
 
@@ -11,35 +10,14 @@ def home():
 @app.route('/stt', methods=['POST'])
 def stt():
 
-    try:
+    audio_data = request.data
 
-        audio_data = request.data
+    print("Audio received:", len(audio_data))
 
-        print("Audio size:", len(audio_data))
+    # Test response
+    text = "Xin chao ESP32"
 
-        if len(audio_data) == 0:
-            return "No audio", 400
-
-        wav_file = "record.wav"
-
-        with wave.open(wav_file, 'wb') as wf:
-
-            wf.setnchannels(1)
-            wf.setsampwidth(2)
-            wf.setframerate(16000)
-
-            wf.writeframes(audio_data)
-
-        print("Saved WAV OK")
-
-        return "Audio received OK"
-
-    except Exception as e:
-
-        print("ERROR:", str(e))
-
-        return str(e), 500
-
+    return text
 
 if __name__ == "__main__":
 
