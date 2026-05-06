@@ -1,3 +1,5 @@
 flask
 gunicorn
 pyserial
+openai-whisper
+torch
