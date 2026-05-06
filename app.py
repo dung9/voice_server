@@ -1,34 +1,38 @@
 from flask import Flask, request
+import whisper
 import os
-import wave
 
 app = Flask(__name__)
 
-@app.route('/')
+print("Loading Whisper model...")
+model = whisper.load_model("tiny")
+
+@app.route("/")
 def home():
     return "Server OK"
 
-@app.route('/stt', methods=['POST'])
+@app.route("/stt", methods=["POST"])
 def stt():
 
-    audio_data = request.data
+    with open("record.wav", "wb") as f:
+        f.write(request.data)
 
-    wav_file = "record.wav"
+    result = model.transcribe(
+        "record.wav",
+        language="vi"
+    )
 
-    with wave.open(wav_file, 'wb') as wf:
+    text = result["text"]
 
-        wf.setnchannels(1)
-        wf.setsampwidth(2)
-        wf.setframerate(16000)
+    print("TEXT:", text)
 
-        wf.writeframes(audio_data)
-
-    print("Saved:", wav_file)
-
-    return "Nhan audio thanh cong"
+    return text
 
 if __name__ == "__main__":
 
-    port = int(os.environ.get("PORT", 5000))
+    port = int(os.environ.get("PORT", 8080))
 
-    app.run(host="0.0.0.0", port=port)
+    app.run(
+        host="0.0.0.0",
+        port=port
+    )
