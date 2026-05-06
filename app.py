@@ -1,7 +1,13 @@
 from flask import Flask, request
+from openai import OpenAI
+import wave
 import os
 
 app = Flask(__name__)
+
+client = OpenAI(
+    api_key=os.getenv("OPENAI_API_KEY")
+)
 
 @app.route('/')
 def home():
@@ -10,13 +16,45 @@ def home():
 @app.route('/stt', methods=['POST'])
 def stt():
 
-    audio_data = request.data
+    try:
 
-    size = len(audio_data)
+        audio_data = request.data
 
-    print("Audio size:", size)
+        print("Audio bytes:", len(audio_data))
 
-    return f"Nhan thanh cong {size} bytes"
+        wav_file = "record.wav"
+
+        # Save WAV
+        with wave.open(wav_file, 'wb') as wf:
+
+            wf.setnchannels(1)
+            wf.setsampwidth(2)
+            wf.setframerate(16000)
+
+            wf.writeframes(audio_data)
+
+        # Whisper STT
+        with open(wav_file, "rb") as audio_file:
+
+            transcript =
+                client.audio.transcriptions.create(
+
+                    model="whisper-1",
+
+                    file=audio_file
+                )
+
+        text = transcript.text
+
+        print("TEXT:", text)
+
+        return text
+
+    except Exception as e:
+
+        print("ERROR:", str(e))
+
+        return str(e), 500
 
 if __name__ == "__main__":
 
