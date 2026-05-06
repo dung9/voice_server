@@ -1,5 +1,3 @@
 flask
 gunicorn
-pyserial
-openai-whisper
-torch
+openai
