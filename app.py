@@ -1,46 +1,48 @@
-# Python PC nhận audio từ ESP32
-# và chuyển speech → text bằng Whisper
-
-# pip install pyserial openai-whisper soundfile numpy scipy
-
-import serial
+from flask import Flask, request
+import os
 import wave
-import whisper
-import time
 
-PORT = "COM5"       # sửa lại COM của bạn
-BAUD = 115200
-SECONDS = 5
-SAMPLE_RATE = 16000
+app = Flask(__name__)
 
-print("Loading Whisper model...")
-model = whisper.load_model("base")
+@app.route('/')
+def home():
+    return "Server OK"
 
-ser = serial.Serial(PORT, BAUD)
+@app.route('/stt', methods=['POST'])
+def stt():
 
-print("Recording...")
+    try:
 
-frames = bytearray()
+        audio_data = request.data
 
-start = time.time()
+        print("Audio size:", len(audio_data))
 
-while time.time() - start < SECONDS:
-    if ser.in_waiting:
-        frames.extend(
-            ser.read(ser.in_waiting)
-        )
+        if len(audio_data) == 0:
+            return "No audio", 400
 
-print("Saving WAV...")
+        wav_file = "record.wav"
 
-with wave.open("record.wav", "wb") as wf:
-    wf.setnchannels(1)
-    wf.setsampwidth(2)
-    wf.setframerate(SAMPLE_RATE)
-    wf.writeframes(frames)
+        with wave.open(wav_file, 'wb') as wf:
 
-print("Transcribing...")
+            wf.setnchannels(1)
+            wf.setsampwidth(2)
+            wf.setframerate(16000)
 
-result = model.transcribe("record.wav", language="vi")
+            wf.writeframes(audio_data)
 
-print("TEXT:")
-print(result["text"])
+        print("Saved WAV OK")
+
+        return "Audio received OK"
+
+    except Exception as e:
+
+        print("ERROR:", str(e))
+
+        return str(e), 500
+
+
+if __name__ == "__main__":
+
+    port = int(os.environ.get("PORT", 5000))
+
+    app.run(host="0.0.0.0", port=port)
