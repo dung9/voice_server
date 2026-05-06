@@ -10,11 +10,19 @@ def home():
 @app.route('/stt', methods=['POST'])
 def stt():
 
-    audio_data = request.data
+    try:
 
-    print("Audio Size:", len(audio_data))
+        data = request.get_data()
 
-    return "ESP32 Audio Received"
+        print("DATA LEN:", len(data))
+
+        return "OK"
+
+    except Exception as e:
+
+        print(str(e))
+
+        return str(e), 500
 
 if __name__ == "__main__":
 
