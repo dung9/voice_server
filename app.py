@@ -9,8 +9,15 @@ def home():
 
 @app.route('/stt', methods=['POST'])
 def stt():
-    return "Nhan du lieu audio"
+
+    data = request.data.decode('utf-8')
+
+    print("Nhan tu ESP32:", data)
+
+    return "Da nhan: " + data
 
 if __name__ == "__main__":
+
     port = int(os.environ.get("PORT", 5000))
+
     app.run(host="0.0.0.0", port=port)
