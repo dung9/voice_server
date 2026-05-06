@@ -12,11 +12,9 @@ def stt():
 
     audio_data = request.data
 
-    print("Audio received")
+    print("Audio Size:", len(audio_data))
 
-    print("Size:", len(audio_data))
-
-    return "OK ESP32"
+    return "ESP32 Audio Received"
 
 if __name__ == "__main__":
 
