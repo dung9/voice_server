@@ -1,26 +1,36 @@
 from flask import Flask, request
+import whisper
 import os
 
 app = Flask(__name__)
 
-@app.route('/')
-def home():
-    return "Server OK"
+print("Loading Whisper model...")
+model = whisper.load_model("base")
 
 @app.route('/stt', methods=['POST'])
 def stt():
 
-    audio_data = request.data
+    audio_file = request.files['audio']
 
-    print("Audio received:", len(audio_data))
+    save_path = "record.wav"
 
-    # Test response
-    text = "Xin chao ESP32"
+    audio_file.save(save_path)
+
+    print("Audio saved")
+
+    result = model.transcribe(
+        save_path,
+        language='vi'
+    )
+
+    text = result["text"]
+
+    print("TEXT:", text)
 
     return text
 
-if __name__ == "__main__":
-
-    port = int(os.environ.get("PORT", 5000))
-
-    app.run(host="0.0.0.0", port=port)
+if __name__ == '__main__':
+    app.run(
+        host='0.0.0.0',
+        port=5000
+    )
