@@ -1,51 +1,44 @@
-from flask import Flask
+from flask import Flask, request
 from openai import OpenAI
+import wave
 import os
 
 app = Flask(__name__)
 
-api_key = os.getenv("OPENAI_API_KEY")
-
-print("API KEY:")
-print(api_key)
-
 client = OpenAI(
-    api_key=api_key
+    api_key=os.getenv("OPENAI_API_KEY")
 )
 
 @app.route('/')
 def home():
+    return "Server OK"
 
-    try:
+@app.route('/stt', methods=['POST'])
+def stt():
 
-        response = client.chat.completions.create(
+    audio_data = request.data
 
-            model="gpt-3.5-turbo",
+    wav_file = "record.wav"
 
-            messages=[
-                {
-                    "role": "user",
-                    "content": "hello"
-                }
-            ]
+    with wave.open(wav_file, 'wb') as wf:
 
+        wf.setnchannels(1)
+        wf.setsampwidth(2)
+        wf.setframerate(8000)
+
+        wf.writeframes(audio_data)
+
+    with open(wav_file, "rb") as audio_file:
+
+        transcript = client.audio.transcriptions.create(
+            model="whisper-1",
+            file=audio_file
         )
 
-        text = response.choices[0].message.content
-
-        return "OPENAI OK: " + text
-
-    except Exception as e:
-
-        print(str(e))
-
-        return str(e)
+    return transcript.text
 
 if __name__ == "__main__":
 
     port = int(os.environ.get("PORT", 5000))
 
-    app.run(
-        host="0.0.0.0",
-        port=port
-    )
+    app.run(host="0.0.0.0", port=port)
