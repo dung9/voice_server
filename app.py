@@ -1,23 +1,46 @@
-from flask import Flask, request
-import os
+# Python PC nhận audio từ ESP32
+# và chuyển speech → text bằng Whisper
 
-app = Flask(__name__)
+# pip install pyserial openai-whisper soundfile numpy scipy
 
-@app.route('/')
-def home():
-    return "Server OK"
+import serial
+import wave
+import whisper
+import time
 
-@app.route('/stt', methods=['POST'])
-def stt():
+PORT = "COM5"       # sửa lại COM của bạn
+BAUD = 115200
+SECONDS = 5
+SAMPLE_RATE = 16000
 
-    data = request.data.decode('utf-8')
+print("Loading Whisper model...")
+model = whisper.load_model("base")
 
-    print("Nhan tu ESP32:", data)
+ser = serial.Serial(PORT, BAUD)
 
-    return "Da nhan: " + data
+print("Recording...")
 
-if __name__ == "__main__":
+frames = bytearray()
 
-    port = int(os.environ.get("PORT", 5000))
+start = time.time()
 
-    app.run(host="0.0.0.0", port=port)
+while time.time() - start < SECONDS:
+    if ser.in_waiting:
+        frames.extend(
+            ser.read(ser.in_waiting)
+        )
+
+print("Saving WAV...")
+
+with wave.open("record.wav", "wb") as wf:
+    wf.setnchannels(1)
+    wf.setsampwidth(2)
+    wf.setframerate(SAMPLE_RATE)
+    wf.writeframes(frames)
+
+print("Transcribing...")
+
+result = model.transcribe("record.wav", language="vi")
+
+print("TEXT:")
+print(result["text"])
