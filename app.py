@@ -10,7 +10,7 @@ client = OpenAI(
 )
 
 # Wake word
-WAKE_WORD = "Xin chao Vivi"
+WAKE_WORD = "Hi Vivi"
 
 @app.route('/')
 def home():
