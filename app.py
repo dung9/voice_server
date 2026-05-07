@@ -9,9 +9,6 @@ client = OpenAI(
     api_key=os.getenv("OPENAI_API_KEY")
 )
 
-# Wake word
-WAKE_WORD = "Hi Vivi"
-
 @app.route('/')
 def home():
 
@@ -44,7 +41,7 @@ def stt():
 
         print("WAV Saved")
 
-        # Whisper
+        # Whisper STT
         with open(wav_file, "rb") as audio_file:
 
             transcript = client.audio.transcriptions.create(
@@ -61,16 +58,8 @@ def stt():
         print("TEXT:", text)
         print("========================")
 
-        # wake word detect
-        if WAKE_WORD.lower() in text.lower():
-        
-            print("WAKE WORD DETECTED")
-        
-            return "Wake word detected"
-        
-        else:
-        
-            return "..."
+        # trả text về ESP32
+        return text
 
     except Exception as e:
 
