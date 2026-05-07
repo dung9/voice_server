@@ -9,36 +9,84 @@ client = OpenAI(
     api_key=os.getenv("OPENAI_API_KEY")
 )
 
+# Wake word
+WAKE_WORD = "Hey Vivi"
+
 @app.route('/')
 def home():
+
     return "Server OK"
 
 @app.route('/stt', methods=['POST'])
 def stt():
 
-    audio_data = request.data
+    try:
 
-    wav_file = "record.wav"
+        audio_data = request.data
 
-    with wave.open(wav_file, 'wb') as wf:
+        print("")
+        print("========================")
+        print("Audio Bytes:", len(audio_data))
+        print("========================")
 
-        wf.setnchannels(1)
-        wf.setsampwidth(2)
-        wf.setframerate(8000)
+        wav_file = "record.wav"
 
-        wf.writeframes(audio_data)
+        # save wav
+        with wave.open(wav_file, 'wb') as wf:
 
-    with open(wav_file, "rb") as audio_file:
+            wf.setnchannels(1)
 
-        transcript = client.audio.transcriptions.create(
-            model="whisper-1",
-            file=audio_file
-        )
+            wf.setsampwidth(2)
 
-    return transcript.text
+            wf.setframerate(8000)
+
+            wf.writeframes(audio_data)
+
+        print("WAV Saved")
+
+        # Whisper
+        with open(wav_file, "rb") as audio_file:
+
+            transcript = client.audio.transcriptions.create(
+
+                model="whisper-1",
+
+                file=audio_file
+            )
+
+        text = transcript.text
+
+        print("")
+        print("========================")
+        print("TEXT:", text)
+        print("========================")
+
+        # wake word detect
+        if WAKE_WORD in text.lower():
+
+            print("WAKE WORD DETECTED")
+
+            return "Wake word detected"
+
+        else:
+
+            return "..."
+
+    except Exception as e:
+
+        print("")
+        print("========================")
+        print("ERROR:", str(e))
+        print("========================")
+
+        return str(e), 500
+
 
 if __name__ == "__main__":
 
     port = int(os.environ.get("PORT", 5000))
 
-    app.run(host="0.0.0.0", port=port)
+    app.run(
+        host="0.0.0.0",
+        port=port
+    )
