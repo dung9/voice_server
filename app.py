@@ -10,7 +10,7 @@ client = OpenAI(
 )
 
 # Wake word
-WAKE_WORD = "Hey Vivi"
+WAKE_WORD = "Xin chao Vivi"
 
 @app.route('/')
 def home():
@@ -62,14 +62,14 @@ def stt():
         print("========================")
 
         # wake word detect
-        if WAKE_WORD in text.lower():
-
+        if WAKE_WORD.lower() in text.lower():
+        
             print("WAKE WORD DETECTED")
-
+        
             return "Wake word detected"
-
+        
         else:
-
+        
             return "..."
 
     except Exception as e:
