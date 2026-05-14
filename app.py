@@ -2,9 +2,6 @@ from flask import Flask, request, Response
 from openai import OpenAI
 import tempfile
 import wave
-import asyncio
-import edge_tts
-from pydub import AudioSegment
 
 app = Flask(__name__)
 
@@ -37,53 +34,6 @@ def pcm_to_wav(pcm_data):
 
     return temp_wav.name
 
-#========================================
-# TTS
-#========================================
-
-async def generate_tts(text, mp3_path):
-
-    communicate = edge_tts.Communicate(
-
-        text,
-
-        voice="vi-VN-HoaiMyNeural"
-    )
-
-    await communicate.save(mp3_path)
-
-#========================================
-# Convert MP3 -> WAV PCM
-#========================================
-
-def convert_to_pcm_wav(mp3_file):
-
-    wav_file = tempfile.NamedTemporaryFile(
-
-        delete=False,
-
-        suffix=".wav"
-    )
-
-    audio = AudioSegment.from_mp3(mp3_file)
-
-    audio = audio.set_frame_rate(16000)
-
-    audio = audio.set_channels(1)
-
-    audio = audio.set_sample_width(2)
-
-    audio.export(
-
-        wav_file.name,
-
-        format="wav"
-    )
-
-    return wav_file.name
-
-#========================================
-# MAIN API
 #========================================
 
 @app.route('/stt', methods=['POST'])
@@ -131,7 +81,7 @@ def stt():
                 {
                     "role": "system",
                     "content":
-                    "Bạn là trợ lý AI nói tiếng Việt tự nhiên."
+                    "Bạn là trợ lý AI nói tiếng Việt."
                 },
 
                 {
@@ -147,57 +97,46 @@ def stt():
         print("AI:", ai_text)
 
         #====================================
-        # TTS
+        # OPENAI TTS WAV
         #====================================
 
-        mp3_file = tempfile.NamedTemporaryFile(
+        speech = client.audio.speech.create(
 
-            delete=False,
+            model="gpt-4o-mini-tts",
 
-            suffix=".mp3"
+            voice="alloy",
+
+            input=ai_text,
+
+            response_format="pcm"
         )
 
-        asyncio.run(
-
-            generate_tts(
-                ai_text,
-                mp3_file.name
-            )
-        )
+        pcm_audio = speech.content
 
         #====================================
-        # MP3 -> PCM WAV
-        #====================================
-
-        wav_output = convert_to_pcm_wav(
-            mp3_file.name
-        )
-
-        #====================================
-        # STREAM WAV
+        # STREAM PCM
         #====================================
 
         def generate():
 
-            with open(wav_output, "rb") as f:
+            chunk_size = 1024
 
-                # skip WAV HEADER
-                f.read(44)
+            for i in range(
+                0,
+                len(pcm_audio),
+                chunk_size
+            ):
 
-                while True:
-
-                    chunk = f.read(1024)
-
-                    if not chunk:
-                        break
-
-                    yield chunk
+                yield pcm_audio[
+                    i:i+chunk_size
+                ]
 
         return Response(
 
             generate(),
 
-            mimetype="application/octet-stream"
+            mimetype=
+            "application/octet-stream"
         )
 
     except Exception as e:
