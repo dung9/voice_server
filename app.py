@@ -4,6 +4,7 @@ import tempfile
 import wave
 import asyncio
 import edge_tts
+from pydub import AudioSegment
 
 app = Flask(__name__)
 
@@ -13,6 +14,8 @@ client = OpenAI(
 
 SAMPLE_RATE = 16000
 
+#========================================
+# PCM -> WAV
 #========================================
 
 def pcm_to_wav(pcm_data):
@@ -28,18 +31,17 @@ def pcm_to_wav(pcm_data):
     ) as wf:
 
         wf.setnchannels(1)
-
         wf.setsampwidth(2)
-
         wf.setframerate(SAMPLE_RATE)
-
         wf.writeframes(pcm_data)
 
     return temp_wav.name
 
 #========================================
+# TTS
+#========================================
 
-async def text_to_speech(text, output):
+async def generate_tts(text, mp3_path):
 
     communicate = edge_tts.Communicate(
 
@@ -48,85 +50,161 @@ async def text_to_speech(text, output):
         voice="vi-VN-HoaiMyNeural"
     )
 
-    await communicate.save(output)
+    await communicate.save(mp3_path)
 
+#========================================
+# Convert MP3 -> WAV PCM
+#========================================
+
+def convert_to_pcm_wav(mp3_file):
+
+    wav_file = tempfile.NamedTemporaryFile(
+
+        delete=False,
+
+        suffix=".wav"
+    )
+
+    audio = AudioSegment.from_mp3(mp3_file)
+
+    audio = audio.set_frame_rate(16000)
+
+    audio = audio.set_channels(1)
+
+    audio = audio.set_sample_width(2)
+
+    audio.export(
+
+        wav_file.name,
+
+        format="wav"
+    )
+
+    return wav_file.name
+
+#========================================
+# MAIN API
 #========================================
 
 @app.route('/stt', methods=['POST'])
 
 def stt():
 
-    pcm_data = request.data
+    try:
 
-    wav_file = pcm_to_wav(pcm_data)
+        pcm_data = request.data
 
-    #================ WHISPER ================
+        #====================================
+        # PCM -> WAV
+        #====================================
 
-    audio_file = open(wav_file, "rb")
+        wav_input = pcm_to_wav(pcm_data)
 
-    transcript = client.audio.transcriptions.create(
+        #====================================
+        # WHISPER
+        #====================================
 
-        model="whisper-1",
+        audio_file = open(wav_input, "rb")
 
-        file=audio_file
-    )
+        transcript = client.audio.transcriptions.create(
 
-    user_text = transcript.text
+            model="whisper-1",
 
-    print("USER:", user_text)
+            file=audio_file
+        )
 
-    #================ GPT ====================
+        user_text = transcript.text
 
-    chat = client.chat.completions.create(
+        print("")
+        print("USER:", user_text)
 
-        model="gpt-4.1-mini",
+        #====================================
+        # GPT
+        #====================================
 
-        messages=[
+        chat = client.chat.completions.create(
 
-            {
-                "role": "system",
-                "content": "Bạn là trợ lý AI nói tiếng Việt."
-            },
+            model="gpt-4.1-mini",
 
-            {
-                "role": "user",
-                "content": user_text
-            }
-        ]
-    )
+            messages=[
 
-    ai_text = chat.choices[0].message.content
+                {
+                    "role": "system",
+                    "content":
+                    "Bạn là trợ lý AI nói tiếng Việt tự nhiên."
+                },
 
-    print("AI:", ai_text)
+                {
+                    "role": "user",
+                    "content": user_text
+                }
+            ]
+        )
 
-    #================ TTS ====================
+        ai_text = chat.choices[0].message.content
 
-    mp3_file = tempfile.NamedTemporaryFile(
+        print("")
+        print("AI:", ai_text)
 
-        delete=False,
+        #====================================
+        # TTS
+        #====================================
 
-        suffix=".mp3"
-    )
+        mp3_file = tempfile.NamedTemporaryFile(
 
-    asyncio.run(
+            delete=False,
 
-        text_to_speech(
-            ai_text,
+            suffix=".mp3"
+        )
+
+        asyncio.run(
+
+            generate_tts(
+                ai_text,
+                mp3_file.name
+            )
+        )
+
+        #====================================
+        # MP3 -> PCM WAV
+        #====================================
+
+        wav_output = convert_to_pcm_wav(
             mp3_file.name
         )
-    )
 
-    audio_bytes = open(
-        mp3_file.name,
-        "rb"
-    ).read()
+        #====================================
+        # STREAM WAV
+        #====================================
 
-    return Response(
+        def generate():
 
-        audio_bytes,
+            with open(wav_output, "rb") as f:
 
-        mimetype="audio/mpeg"
-    )
+                # skip WAV HEADER
+                f.read(44)
+
+                while True:
+
+                    chunk = f.read(1024)
+
+                    if not chunk:
+                        break
+
+                    yield chunk
+
+        return Response(
+
+            generate(),
+
+            mimetype="application/octet-stream"
+        )
+
+    except Exception as e:
+
+        print("ERROR:", e)
+
+        return str(e), 500
 
 #========================================
 
