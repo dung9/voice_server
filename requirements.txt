@@ -1,6 +1,3 @@
 flask
 openai
-numpy
-scipy
-soundfile
 gunicorn
