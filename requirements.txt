@@ -1,3 +1,8 @@
 flask
-gunicorn
 openai
+numpy
+scipy
+soundfile
+edge-tts
+ffmpeg-python
+pydub
