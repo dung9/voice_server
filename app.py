@@ -16,7 +16,7 @@ client = OpenAI(
     api_key=os.getenv("OPENAI_API_KEY")
 )
 
-SAMPLE_RATE = 24000
+SAMPLE_RATE = 16000
 
 #========================================
 # HOME
