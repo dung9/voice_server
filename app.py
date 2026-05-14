@@ -16,7 +16,7 @@ client = OpenAI(
     api_key=os.getenv("OPENAI_API_KEY")
 )
 
-SAMPLE_RATE = 16000
+SAMPLE_RATE = 24000
 
 #========================================
 # HOME
@@ -57,7 +57,7 @@ def pcm_to_wav(pcm_data):
     return temp_wav.name
 
 #========================================
-# STT API
+# STT
 #========================================
 
 @app.route('/stt', methods=['POST'])
@@ -67,9 +67,9 @@ def stt():
     try:
 
         print("")
-        print("================================")
+        print("========================")
         print("REQUEST RECEIVED")
-        print("================================")
+        print("========================")
 
         pcm_data = request.data
 
@@ -87,14 +87,14 @@ def stt():
         # WHISPER
         #====================================
 
-        audio_file = open(wav_input, "rb")
+        with open(wav_input, "rb") as audio_file:
 
-        transcript = client.audio.transcriptions.create(
+            transcript = client.audio.transcriptions.create(
 
-            model="whisper-1",
+                model="whisper-1",
 
-            file=audio_file
-        )
+                file=audio_file
+            )
 
         user_text = transcript.text
 
@@ -115,12 +115,12 @@ def stt():
                     "role": "system",
                     "content":
                     """
-                    Bạn là trợ lý AI nói tiếng Việt.
+                    Bạn là trợ lý AI tiếng Việt.
 
                     Trả lời:
                     - ngắn gọn
                     - tự nhiên
-                    - giống trợ lý giọng nói
+                    - dưới 20 từ
                     """
                 },
 
@@ -128,7 +128,9 @@ def stt():
                     "role": "user",
                     "content": user_text
                 }
-            ]
+            ],
+
+            max_tokens=60
         )
 
         ai_text = chat.choices[0].message.content
@@ -154,7 +156,7 @@ def stt():
         pcm_audio = speech.content
 
         print("")
-        print("TTS SIZE:", len(pcm_audio))
+        print("PCM AUDIO SIZE:", len(pcm_audio))
 
         #====================================
         # STREAM PCM
@@ -162,7 +164,7 @@ def stt():
 
         def generate():
 
-            chunk_size = 1024
+            chunk_size = 512
 
             for i in range(
                 0,
@@ -194,6 +196,10 @@ def stt():
 if __name__ == "__main__":
 
     app.run(
+
         host="0.0.0.0",
-        port=8080
+
+        port=8080,
+
+        threaded=True
     )
