@@ -1,81 +1,138 @@
-from flask import Flask, request
+from flask import Flask, request, Response
 from openai import OpenAI
+import tempfile
 import wave
-import os
+import asyncio
+import edge_tts
 
 app = Flask(__name__)
 
 client = OpenAI(
-    api_key=os.getenv("OPENAI_API_KEY")
+    api_key="OPENAI_API_KEY"
 )
 
-@app.route('/')
-def home():
+SAMPLE_RATE = 16000
 
-    return "Server OK"
+#========================================
+
+def pcm_to_wav(pcm_data):
+
+    temp_wav = tempfile.NamedTemporaryFile(
+        delete=False,
+        suffix=".wav"
+    )
+
+    with wave.open(
+        temp_wav.name,
+        'wb'
+    ) as wf:
+
+        wf.setnchannels(1)
+
+        wf.setsampwidth(2)
+
+        wf.setframerate(SAMPLE_RATE)
+
+        wf.writeframes(pcm_data)
+
+    return temp_wav.name
+
+#========================================
+
+async def text_to_speech(text, output):
+
+    communicate = edge_tts.Communicate(
+
+        text,
+
+        voice="vi-VN-HoaiMyNeural"
+    )
+
+    await communicate.save(output)
+
+#========================================
 
 @app.route('/stt', methods=['POST'])
+
 def stt():
 
-    try:
+    pcm_data = request.data
 
-        audio_data = request.data
+    wav_file = pcm_to_wav(pcm_data)
 
-        print("")
-        print("========================")
-        print("Audio Bytes:", len(audio_data))
-        print("========================")
+    #================ WHISPER ================
 
-        wav_file = "record.wav"
+    audio_file = open(wav_file, "rb")
 
-        # save wav
-        with wave.open(wav_file, 'wb') as wf:
+    transcript = client.audio.transcriptions.create(
 
-            wf.setnchannels(1)
+        model="whisper-1",
 
-            wf.setsampwidth(2)
+        file=audio_file
+    )
 
-            wf.setframerate(8000)
+    user_text = transcript.text
 
-            wf.writeframes(audio_data)
+    print("USER:", user_text)
 
-        print("WAV Saved")
+    #================ GPT ====================
 
-        # Whisper STT
-        with open(wav_file, "rb") as audio_file:
+    chat = client.chat.completions.create(
 
-            transcript = client.audio.transcriptions.create(
+        model="gpt-4.1-mini",
 
-                model="whisper-1",
+        messages=[
 
-                file=audio_file
-            )
+            {
+                "role": "system",
+                "content": "Bạn là trợ lý AI nói tiếng Việt."
+            },
 
-        text = transcript.text
+            {
+                "role": "user",
+                "content": user_text
+            }
+        ]
+    )
 
-        print("")
-        print("========================")
-        print("TEXT:", text)
-        print("========================")
+    ai_text = chat.choices[0].message.content
 
-        # trả text về ESP32
-        return text
+    print("AI:", ai_text)
 
-    except Exception as e:
+    #================ TTS ====================
 
-        print("")
-        print("========================")
-        print("ERROR:", str(e))
-        print("========================")
+    mp3_file = tempfile.NamedTemporaryFile(
 
-        return str(e), 500
+        delete=False,
 
+        suffix=".mp3"
+    )
+
+    asyncio.run(
+
+        text_to_speech(
+            ai_text,
+            mp3_file.name
+        )
+    )
+
+    audio_bytes = open(
+        mp3_file.name,
+        "rb"
+    ).read()
+
+    return Response(
+
+        audio_bytes,
+
+        mimetype="audio/mpeg"
+    )
+
+#========================================
 
 if __name__ == "__main__":
 
-    port = int(os.environ.get("PORT", 5000))
-
     app.run(
         host="0.0.0.0",
-        port=port
+        port=8080
     )
